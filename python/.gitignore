@@ -1,0 +1,11 @@
+**/__pycache__/
+
+**/*.sys
+
+**/Hook.log
+**/IDAHook.log
+
+*Cfg.json
+**/temp
+
+config.json
