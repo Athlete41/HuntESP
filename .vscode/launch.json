@@ -18,6 +18,13 @@
             "request": "launch",
             "program": "${workspaceFolder}/python/hunt_esp_window.py",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "main",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/main.py",
+            "console": "integratedTerminal"
         }
     ]
 }
