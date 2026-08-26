@@ -1,5 +1,6 @@
 """入口：ESP 窗口 + 设置窗口 + 内嵌 Web Radar。"""
 
+import ctypes
 import json
 import os
 import sys
@@ -245,7 +246,8 @@ class MainWindow(HuntESPWindow):
         self.setWindowFlags(
             Qt.FramelessWindowHint |
             Qt.WindowStaysOnTopHint |
-            Qt.Tool
+            Qt.Tool |
+            Qt.WindowDoesNotAcceptFocus
         )
 
         # 2. 启用真正的透明背景（关键！）
@@ -263,6 +265,10 @@ class MainWindow(HuntESPWindow):
         # 5. 置顶
         win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0,
                             win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_SHOWWINDOW)
+
+        self.overlay_timer = QTimer(self)
+        self.overlay_timer.timeout.connect(self._keep_overlay_top)
+        self.overlay_timer.start(250)
 
 
     def on_snapshot(self, snap):
@@ -293,7 +299,31 @@ class MainWindow(HuntESPWindow):
         self.settings_window.raise_()
         self.settings_window.activateWindow()
 
+    def _keep_overlay_top(self):
+        hwnd = int(self.winId())
+        ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+        required = (
+            win32con.WS_EX_TRANSPARENT
+            | win32con.WS_EX_LAYERED
+            | win32con.WS_EX_NOACTIVATE
+        )
+        if ex_style & required != required:
+            win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex_style | required)
+        win32gui.SetWindowPos(
+            hwnd,
+            win32con.HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            win32con.SWP_NOMOVE
+            | win32con.SWP_NOSIZE
+            | win32con.SWP_NOACTIVATE
+            | win32con.SWP_SHOWWINDOW,
+        )
+
     def closeEvent(self, event):
+        self.overlay_timer.stop()
         self._save_config()
         self.settings_window.close()
         # Web Radar 暂时关闭
@@ -319,6 +349,14 @@ class MainWindow(HuntESPWindow):
 
 
 if __name__ == "__main__":
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
     app = QApplication(sys.argv)
 
     screen = QGuiApplication.primaryScreen()
