@@ -39,6 +39,7 @@ class HuntESPWindow(QWidget):
         crosshair=True,
         show_distance=True,
         radar_range=250.0,
+        radar_visible=True,
         window_posx=100,
         window_posy=100,
         window_width=800,
@@ -57,6 +58,7 @@ class HuntESPWindow(QWidget):
 
         self.radar = Qt6RadarCanvas(self)
         self.radar.setRadarRadius(self.radar_range)
+        self.radar.setVisible(radar_visible)
         self.radar.setGeometry(0, 0, 260, 260)
 
         self.snapshot = {
@@ -142,6 +144,9 @@ class HuntESPWindow(QWidget):
     def set_radar_range(self, radius):
         self.radar_range = float(radius)
         self.radar.setRadarRadius(self.radar_range)
+
+    def set_radar_visible(self, show):
+        self.radar.setVisible(bool(show))
 
     def set_crosshair(self, show):
         self.canvas3D.setCrosshair(bool(show))

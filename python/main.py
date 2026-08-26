@@ -35,6 +35,7 @@ CONFIG_DEFAULTS = {
     "camera_hz": 10.0,
     "update_hz": 1.0,
     "radar_range": 250.0,
+    "radar_visible": True,
     "crosshair": True,
     "show_distance": True
 }
@@ -83,8 +84,10 @@ class SettingsWindow(QWidget):
 
         radar_group = QGroupBox("雷达")
         radar_form = QFormLayout(radar_group)
+        self.radar_check = QCheckBox("显示雷达")
         self.radar_range_input = QLineEdit()
         self.radar_range_input.setValidator(QDoubleValidator(1.0, 100000.0, 1, self))
+        radar_form.addRow(self.radar_check)
         radar_form.addRow("雷达范围", self.radar_range_input)
         layout.addWidget(radar_group)
 
@@ -117,6 +120,7 @@ class SettingsWindow(QWidget):
         self.camera_hz_input.editingFinished.connect(self._apply_camera_hz)
         self.update_hz_input.editingFinished.connect(self._apply_update_hz)
         full_scan_button.clicked.connect(self.main.request_full_scan)
+        self.radar_check.toggled.connect(self.main.set_radar_visible)
         self.radar_range_input.editingFinished.connect(self._apply_radar_range)
         self.crosshair_check.toggled.connect(self.main.set_crosshair)
         self.distance_check.toggled.connect(self.main.set_show_distance)
@@ -138,6 +142,7 @@ class SettingsWindow(QWidget):
         self.camera_hz_input.setText(f"{1000 / self.main.reader.camera_ms:.2f}")
         self.update_hz_input.setText(f"{1000 / self.main.reader.update_ms:.2f}")
         self.radar_range_input.setText(f"{self.main.radar_range:.1f}")
+        self.radar_check.setChecked(self.main.radar.isVisible())
         self.crosshair_check.setChecked(self.main.canvas3D.getCrosshair())
         self.distance_check.setChecked(self.main.show_distance)
         self.posx_input.setText(str(self.main.x()))
@@ -201,6 +206,7 @@ class MainWindow(HuntESPWindow):
             "camera_ms": round(1000 / max(0.1, config.get("camera_hz", 10))),
             "update_ms": round(1000 / max(0.1, config.get("update_hz", 1))),
             "radar_range": config.get("radar_range", 250.0),
+            "radar_visible": config.get("radar_visible", True),
             "crosshair": config.get("crosshair", True),
             "show_distance": config.get("show_distance", True),
             "window_posx": config.get("window_posx", 0),
@@ -214,7 +220,8 @@ class MainWindow(HuntESPWindow):
 
         self.map_id = map_id
         self._snapshot_seq = 0
-        self._last_pressed = False
+        self._last_open_key = False
+        self._last_close_key = False
 
         # Web Radar 暂时关闭
         # if static_root is None:
@@ -271,20 +278,20 @@ class MainWindow(HuntESPWindow):
         super().render_frame()
 
     def _handle_keys(self):
-        pressed = keyboard.is_pressed("num -")
-        if pressed and not self._last_pressed:
-            self._toggle_settings()
-        self._last_pressed = pressed
+        open_pressed = keyboard.is_pressed("num plus")
+        close_pressed = keyboard.is_pressed("num -")
+        if open_pressed and not self._last_open_key:
+            self._open_settings()
+        if close_pressed and not self._last_close_key:
+            self.close()
+        self._last_open_key = open_pressed
+        self._last_close_key = close_pressed
 
-    def _toggle_settings(self):
-        if self.settings_window.isVisible():
-            self.settings_window.hide()
-            self._save_config()
-        else:
-            self.settings_window.refresh_values()
-            self.settings_window.show()
-            self.settings_window.raise_()
-            self.settings_window.activateWindow()
+    def _open_settings(self):
+        self.settings_window.refresh_values()
+        self.settings_window.show()
+        self.settings_window.raise_()
+        self.settings_window.activateWindow()
 
     def closeEvent(self, event):
         self._save_config()
@@ -300,6 +307,7 @@ class MainWindow(HuntESPWindow):
                 "camera_hz": 1000 / self.reader.camera_ms,
                 "update_hz": 1000 / self.reader.update_ms,
                 "radar_range": self.radar_range,
+                "radar_visible": self.radar.isVisible(),
                 "crosshair": self.canvas3D.getCrosshair(),
                 "show_distance": self.show_distance,
                 "window_posx": self.x(),
