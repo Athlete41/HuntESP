@@ -17,6 +17,7 @@ from ui.qt6_radar import Qt6RadarCanvas, RadarEntity
 
 import win32gui
 import win32con
+import keyboard
 
 def ent_color(etype):
     if etype == "LocalPlayer":
@@ -33,9 +34,9 @@ def ent_color(etype):
 class HuntESPWindow(QWidget):
     def __init__(
         self,
-        camera_ms=100,
-        update_ms=1000,
-        scan_ms=10000,
+        camera_ms=30,
+        update_ms=50,
+        scan_ms=20000,
         scan_batch_ms=0,
         batch_size=5000,
         max_entities=99999,
@@ -141,6 +142,12 @@ class HuntESPWindow(QWidget):
             | win32con.SWP_SHOWWINDOW,
         )
 
+    def _handle_keys(self):
+        open_pressed = keyboard.is_pressed("num plus")
+        if open_pressed and not self._last_open_key:
+            self.request_full_scan()
+        self._last_open_key = open_pressed
+
     def on_snapshot(self, snap):
         self.snapshot = snap
 
@@ -149,6 +156,7 @@ class HuntESPWindow(QWidget):
         super().closeEvent(event)
 
     def render_frame(self):
+        self._handle_keys()
         cam = self.snapshot["camera"]
         if cam["view"] and any(cam["view"]):
             apply_game_camera(self.canvas3D, cam["pos"], cam["view"], cam["proj"], z_near=0.1, z_far=10000.0)
