@@ -190,6 +190,9 @@ class Qt6RadarCanvas(QWidget):
         if abs(sx - cx) > w / 2 or abs(sy - cy) > h / 2:
             return
 
+        if not math.isfinite(sx) or not math.isfinite(sy):
+            return
+
         painter.setBrush(ent_color)
         painter.setPen(QPen(ent_color, 2))
         painter.drawEllipse(sx - self.pointSize / 2, sy - self.pointSize / 2,

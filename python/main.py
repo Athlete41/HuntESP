@@ -36,7 +36,7 @@ class HuntESPWindow(QWidget):
         self,
         camera_ms=30,
         update_ms=50,
-        scan_ms=20000,
+        scan_ms=60000,
         scan_batch_ms=0,
         batch_size=5000,
         max_entities=99999,
@@ -89,6 +89,9 @@ class HuntESPWindow(QWidget):
         self.render_timer = QTimer(self)
         self.render_timer.timeout.connect(self.render_frame)
         self.render_timer.start(int(1000.0 / fps))
+
+        self._last_open_key = False
+        self._last_close_key = False
 
     def setup_overlay(self):
         # 1. 设置窗口属性：无边框、置顶、Tool（不抢焦点）
@@ -144,9 +147,13 @@ class HuntESPWindow(QWidget):
 
     def _handle_keys(self):
         open_pressed = keyboard.is_pressed("num plus")
+        close_pressed = keyboard.is_pressed("num -")
         if open_pressed and not self._last_open_key:
             self.request_full_scan()
+        if close_pressed and not self._last_close_key:
+            self.close()
         self._last_open_key = open_pressed
+        self._last_close_key = close_pressed
 
     def on_snapshot(self, snap):
         self.snapshot = snap
