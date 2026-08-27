@@ -2,8 +2,9 @@
 
 import math
 import sys
+import ctypes
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
@@ -13,6 +14,9 @@ from core.reader_thread import ReaderThread
 from hunt_reader import BOSS_TYPES
 from ui.qt6_canvas3d import Point3D, Qt6Numpy3DCanvas, Text3D
 from ui.qt6_radar import Qt6RadarCanvas, RadarEntity
+
+import win32gui
+import win32con
 
 def ent_color(etype):
     if etype == "LocalPlayer":
@@ -32,7 +36,7 @@ class HuntESPWindow(QWidget):
         camera_ms=100,
         update_ms=1000,
         scan_ms=10000,
-        scan_batch_ms=10000,
+        scan_batch_ms=0,
         batch_size=5000,
         max_entities=99999,
         fps=30.0,
@@ -40,12 +44,14 @@ class HuntESPWindow(QWidget):
         show_distance=True,
         radar_range=250.0,
         radar_visible=True,
-        window_posx=100,
-        window_posy=100,
-        window_width=800,
-        window_height=600,
+        window_posx=1920 * 0.5 - 1600 * 0.5,
+        window_posy=1080 * 0.5 - 900 * 0.5,
+        window_width=1600,
+        window_height=900,
     ):
         super().__init__()
+        self.setup_overlay()
+
         self.radar_range = radar_range
         self.show_distance = show_distance
         self.setGeometry(window_posx, window_posy, window_width, window_height)
@@ -82,6 +88,58 @@ class HuntESPWindow(QWidget):
         self.render_timer = QTimer(self)
         self.render_timer.timeout.connect(self.render_frame)
         self.render_timer.start(int(1000.0 / fps))
+
+    def setup_overlay(self):
+        # 1. 设置窗口属性：无边框、置顶、Tool（不抢焦点）
+        self.setWindowFlags(
+            Qt.FramelessWindowHint |
+            Qt.WindowStaysOnTopHint |
+            Qt.Tool |
+            Qt.WindowDoesNotAcceptFocus
+        )
+
+        # 2. 启用真正的透明背景（关键！）
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+
+        # 3. 取消颜色键设置（不再需要）
+        # 不需要 setStyleSheet，不需要 SetLayeredWindowAttributes
+
+        hwnd = int(self.winId())
+        # 4. 依然需要鼠标穿透（WS_EX_TRANSPARENT）
+        ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+        ex_style |= win32con.WS_EX_TRANSPARENT | win32con.WS_EX_LAYERED
+        win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex_style)
+
+        # 5. 置顶
+        win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0,
+                            win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_SHOWWINDOW)
+
+        self.overlay_timer = QTimer(self)
+        self.overlay_timer.timeout.connect(self._keep_overlay_top)
+        self.overlay_timer.start(250)
+
+    def _keep_overlay_top(self):
+        hwnd = int(self.winId())
+        ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+        required = (
+            win32con.WS_EX_TRANSPARENT
+            | win32con.WS_EX_LAYERED
+            | win32con.WS_EX_NOACTIVATE
+        )
+        if ex_style & required != required:
+            win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex_style | required)
+        win32gui.SetWindowPos(
+            hwnd,
+            win32con.HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            win32con.SWP_NOMOVE
+            | win32con.SWP_NOSIZE
+            | win32con.SWP_NOACTIVATE
+            | win32con.SWP_SHOWWINDOW,
+        )
 
     def on_snapshot(self, snap):
         self.snapshot = snap
@@ -172,6 +230,16 @@ class HuntESPWindow(QWidget):
 
 
 if __name__ == "__main__":
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
+
+
     app = QApplication(sys.argv)
     window = HuntESPWindow()
     window.show()

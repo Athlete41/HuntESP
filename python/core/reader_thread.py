@@ -7,6 +7,7 @@ from PySide6.QtCore import QThread, Signal
 from core.hunt_session import HuntSession
 from core.memory_engine import MemoryEngine
 from hunt_reader import HuntReader
+import json
 
 
 class ReaderThread(QThread):
@@ -91,6 +92,7 @@ class ReaderThread(QThread):
                                 f"[scan] done: players={len(session.players)} "
                                 f"bosses={len(session.bosses)}"
                             )
+                            # self.status.emit(json.dumps(session.players, ensure_ascii=False, indent=4))
                         else:
                             session.begin_scan()
                             scanning = True
@@ -107,6 +109,7 @@ class ReaderThread(QThread):
                                     f"[scan] done: players={len(session.players)} "
                                     f"bosses={len(session.bosses)}"
                                 )
+                                # self.status.emit(json.dumps(session.players, ensure_ascii=False, indent=4))
                             else:
                                 last_batch = now
 
@@ -120,6 +123,7 @@ class ReaderThread(QThread):
                                 f"[scan] done: players={len(session.players)} "
                                 f"bosses={len(session.bosses)}"
                             )
+                            # self.status.emit(json.dumps(session.players, ensure_ascii=False, indent=4))
                         else:
                             last_batch = now
                     elif not scanning and now - last_update >= update_interval:
