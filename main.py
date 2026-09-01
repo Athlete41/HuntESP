@@ -45,10 +45,10 @@ class HuntESPWindow(QWidget):
         show_distance=True,
         radar_range=250.0,
         radar_visible=True,
-        window_posx=1920 * 0.5 - 1600 * 0.5,
-        window_posy=1080 * 0.5 - 900 * 0.5,
-        window_width=1600,
-        window_height=900,
+        window_posx=1920 * 0.5 - 1366 * 0.5,
+        window_posy=1080 * 0.5 - 768 * 0.5,
+        window_width=1366,
+        window_height=768,
     ):
         super().__init__()
         self.setup_overlay()
@@ -171,18 +171,21 @@ class HuntESPWindow(QWidget):
             self.radar.setCenterYaw(yaw_from_view(cam["view"]))
         cam_pos = cam["pos"]
 
-        for i in range(1, len(self.snapshot["players"])):
-            ent = self.snapshot["players"][i]
+        for ent in self.snapshot["players"]:
             pos = ent.get("position")
             if not pos:
                 continue
             head_pos = list.copy(pos)
             head_pos[2] += 1.7
+            
+            distance = math.dist(cam_pos, head_pos)
+            if distance < 1:
+                continue
+
             color = ent_color(ent["type"])
             self.radar.addEntity(str(ent["addr"]), RadarEntity("", head_pos, color=color))
             self.canvas3D.addPoint3D(str(ent["addr"]), Point3D(head_pos, 50, color=color))
             if self.show_distance:
-                distance = math.dist(cam_pos, head_pos)
                 self.canvas3D.addText3D(
                     f"text-{ent['addr']}",
                     Text3D(head_pos, f"{distance:.0f}m", color=color),
