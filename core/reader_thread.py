@@ -35,6 +35,7 @@ class ReaderThread(QThread):
         self.max_entities = max_entities
         self._running = True
         self.force_full_scan = False
+        self.emit_snapshots = True
 
     def request_full_scan(self):
         self.force_full_scan = True
@@ -139,7 +140,8 @@ class ReaderThread(QThread):
                     last_scan = now
                     time.sleep(0.1)
 
-                self.snapshot.emit(self._snapshot(session))
+                if self.emit_snapshots:
+                    self.snapshot.emit(self._snapshot(session))
                 time.sleep(0.02)
         finally:
             engine.close()

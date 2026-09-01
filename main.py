@@ -90,6 +90,15 @@ class HuntESPWindow(QWidget):
         self.render_timer.timeout.connect(self.render_frame)
         self.render_timer.start(int(1000.0 / fps))
 
+        self.key_timer = QTimer(self)
+        self.key_timer.timeout.connect(self._handle_keys)
+        self.key_timer.start(50)
+
+        self.fps = fps
+        self.full_camera_ms = camera_ms
+        self.full_update_ms = update_ms
+        self.low_power = False
+        self._last_g_key = False
         self._last_open_key = False
         self._last_close_key = False
 
@@ -146,6 +155,14 @@ class HuntESPWindow(QWidget):
         )
 
     def _handle_keys(self):
+        g_pressed = keyboard.is_pressed("g")
+        if g_pressed and not self._last_g_key:
+            if self.low_power:
+                self._enter_full_power()
+            else:
+                self._enter_low_power()
+        self._last_g_key = g_pressed
+
         open_pressed = keyboard.is_pressed("num plus")
         close_pressed = keyboard.is_pressed("num -")
         if open_pressed and not self._last_open_key:
@@ -156,14 +173,16 @@ class HuntESPWindow(QWidget):
         self._last_close_key = close_pressed
 
     def on_snapshot(self, snap):
+        if self.low_power:
+            return
         self.snapshot = snap
 
     def closeEvent(self, event):
+        self.key_timer.stop()
         self.reader.stop()
         super().closeEvent(event)
 
     def render_frame(self):
-        self._handle_keys()
         cam = self.snapshot["camera"]
         if cam["view"] and any(cam["view"]):
             apply_game_camera(self.canvas3D, cam["pos"], cam["view"], cam["proj"], z_near=0.1, z_far=10000.0)
@@ -207,6 +226,52 @@ class HuntESPWindow(QWidget):
 
         self.radar.update()
         self.canvas3D.update()
+
+    def _enter_low_power(self):
+        self.low_power = True
+        overlay_timer = getattr(self, "overlay_timer", None)
+        if overlay_timer is not None:
+            overlay_timer.stop()
+        self.render_timer.stop()
+        self.reader.emit_snapshots = False
+        self.reader.camera_ms = 10**9
+        self.reader.update_ms = 10**9
+        self.setWindowFlags(Qt.Widget)
+        self.hide()
+        try:
+            hwnd = int(self.winId())
+            ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+            ex_style &= ~(
+                win32con.WS_EX_TRANSPARENT
+                | win32con.WS_EX_LAYERED
+                | win32con.WS_EX_NOACTIVATE
+            )
+            win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex_style)
+            win32gui.SetWindowPos(
+                hwnd,
+                win32con.HWND_NOTOPMOST,
+                0,
+                0,
+                0,
+                0,
+                win32con.SWP_NOMOVE
+                | win32con.SWP_NOSIZE
+                | win32con.SWP_NOACTIVATE,
+            )
+        except Exception as exc:
+            print("[low-power] style cleanup failed:", exc)
+        print("[mode] low power")
+
+    def _enter_full_power(self):
+        self.low_power = False
+        self.setup_overlay()
+        self.render_timer.start(int(1000.0 / self.fps))
+        self.reader.emit_snapshots = True
+        self.reader.camera_ms = self.full_camera_ms
+        self.reader.update_ms = self.full_update_ms
+        self.show()
+        self.raise_()
+        print("[mode] full power")
 
     def request_full_scan(self):
         self.reader.request_full_scan()
