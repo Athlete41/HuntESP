@@ -4,8 +4,8 @@ import math
 import sys
 import ctypes
 
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QColor, QGuiApplication
+from PySide6.QtCore import QTimer, Qt, QRect
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget
 
 import game_offset as off
@@ -56,6 +56,7 @@ class HuntESPWindow(QWidget):
         self.radar_range = radar_range
         self.show_distance = show_distance
         self.setGeometry(window_posx, window_posy, window_width, window_height)
+        self.geo = QRect(window_posx, window_posy, window_width, window_height)
 
         layout = QVBoxLayout(self)
         self.canvas3D = Qt6Numpy3DCanvas(self)
@@ -166,7 +167,7 @@ class HuntESPWindow(QWidget):
         open_pressed = keyboard.is_pressed("num plus")
         close_pressed = keyboard.is_pressed("num -")
         if open_pressed and not self._last_open_key:
-            self.request_full_scan()
+            self.reader.request_full_scan()
         if close_pressed and not self._last_close_key:
             self.close()
         self._last_open_key = open_pressed
@@ -271,45 +272,9 @@ class HuntESPWindow(QWidget):
         self.reader.update_ms = self.full_update_ms
         self.show()
         self.raise_()
+        self.setGeometry(self.geo)
         print("[mode] full power")
 
-    def request_full_scan(self):
-        self.reader.request_full_scan()
-
-    def set_camera_hz(self, hz):
-        self.reader.camera_ms = max(10, int(1000 / max(0.1, float(hz))))
-
-    def set_update_hz(self, hz):
-        self.reader.update_ms = max(100, int(1000 / max(0.1, float(hz))))
-
-    def set_radar_range(self, radius):
-        self.radar_range = float(radius)
-        self.radar.setRadarRadius(self.radar_range)
-
-    def set_radar_visible(self, show):
-        self.radar.setVisible(bool(show))
-
-    def set_crosshair(self, show):
-        self.canvas3D.setCrosshair(bool(show))
-
-    def set_show_distance(self, show):
-        self.show_distance = bool(show)
-
-    def set_window_geometry(self, posx, posy, width, height):
-        self.setGeometry(int(posx), int(posy), int(width), int(height))
-
-    def center_window(self):
-        screen = QGuiApplication.primaryScreen()
-        if screen is not None:
-            geo = screen.availableGeometry()
-            self.move(
-                geo.center().x() - self.width() // 2,
-                geo.center().y() - self.height() // 2,
-            )
-
-    def camera_text(self):
-        pos = self.snapshot["camera"]["pos"]
-        return f"{pos[0]:.1f}, {pos[1]:.1f}, {pos[2]:.1f}"
 
 
 if __name__ == "__main__":
